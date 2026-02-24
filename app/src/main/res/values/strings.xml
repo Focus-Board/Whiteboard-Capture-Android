@@ -1,3 +1,7 @@
 <resources>
-    <string name="app_name">WhitboardCaptureAndroid</string>
+    <string name="app_name">WhiteboardCaptureAndroid</string>
+
+    <string name="captureWhiteboard">Capture whiteboard</string>
+    <string name="statusInitializing">Initializing camera…</string>
+    <string name="statusReady">Ready to scan</string>
 </resources>

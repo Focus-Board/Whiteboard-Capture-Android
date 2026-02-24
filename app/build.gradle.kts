@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.whitboardcaptureandroid"
+    namespace = "com.example.whiteboardcaptureandroid"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.whitboardcaptureandroid"
+        applicationId = "com.example.whiteboardcaptureandroid"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
@@ -38,41 +38,29 @@ android {
     }
     buildFeatures {
         viewBinding = true
-        compose = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
-    }
-    packaging {
-        resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
     }
 }
 
 dependencies {
-    val cameraXVersion = "1.5.3"
+    val cameraXVersion = "1.3.1"
     implementation("androidx.camera:camera-core:${cameraXVersion}")
     implementation("androidx.camera:camera-camera2:${cameraXVersion}")
     implementation("androidx.camera:camera-lifecycle:${cameraXVersion}")
     implementation("androidx.camera:camera-video:${cameraXVersion}")
     implementation("androidx.camera:camera-view:${cameraXVersion}")
     implementation("androidx.camera:camera-extensions:${cameraXVersion}")
-    
 
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.ui.test.junit4)
-    debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation(libs.androidx.ui.test.manifest)
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("com.google.android.material:material:1.11.0")
+
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
+
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+
+
+
 }

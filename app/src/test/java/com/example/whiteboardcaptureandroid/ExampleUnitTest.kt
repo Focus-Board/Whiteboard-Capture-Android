@@ -1,4 +1,4 @@
-package com.example.whitboardcaptureandroid
+package com.example.whiteboardcaptureandroid
 
 import org.junit.Test
 
