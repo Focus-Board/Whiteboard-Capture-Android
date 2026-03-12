@@ -2,26 +2,31 @@ package com.example.whiteboardcaptureandroid
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageFormat
+import android.graphics.Matrix
+import android.graphics.Rect
+import android.graphics.YuvImage
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.Preview
+import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.example.whiteboardcaptureandroid.WhiteboardDetector
 import com.example.whiteboardcaptureandroid.databinding.ActivityMainBinding
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
-    // View binding - gives us access to UI elements
     private lateinit var binding: ActivityMainBinding
-
-    // Camera executor - runs camera operations in background
     private lateinit var cameraExecutor: ExecutorService
+    private lateinit var detector: WhiteboardDetector
 
     companion object {
         private const val TAG = "WhiteboardScanner"
@@ -32,31 +37,34 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Initialize view binding
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        try {
+            binding = ActivityMainBinding.inflate(layoutInflater)
+            setContentView(binding.root)
 
-        // Update status
-        binding.statusText.text = "Checking permissions..."
+            Log.d(TAG, "Activity created")
 
-        // Check if we have camera permission
-        if (allPermissionsGranted()) {
-            startCamera()
-        } else {
-            ActivityCompat.requestPermissions(
-                this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS
-            )
+            cameraExecutor = Executors.newSingleThreadExecutor()
+            detector = WhiteboardDetector(this)
+
+            binding.statusText.text = "Initializing..."
+
+            binding.captureButton.setOnClickListener {
+                binding.statusText.text = "Capture clicked!"
+            }
+
+            if (allPermissionsGranted()) {
+                startCamera()
+            } else {
+                ActivityCompat.requestPermissions(
+                    this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS
+                )
+            }
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in onCreate", e)
+            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
         }
-
-        // Set up capture button click listener
-        binding.captureButton.setOnClickListener {
-            captureImage()
-        }
-
-        // Create background executor for camera
-        cameraExecutor = Executors.newSingleThreadExecutor()
     }
-
 
     private fun startCamera() {
         binding.statusText.text = "Starting camera..."
@@ -65,63 +73,114 @@ class MainActivity : AppCompatActivity() {
 
         cameraProviderFuture.addListener({
             try {
-                // Get camera provider
                 val cameraProvider = cameraProviderFuture.get()
 
-                // Build preview use case
+                // Preview
                 val preview = Preview.Builder()
                     .build()
                     .also {
                         it.setSurfaceProvider(binding.previewView.surfaceProvider)
                     }
 
-                // Select back camera
+                // Image Analysis - Process frames for detection
+                val imageAnalyzer = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+                    .also { analysis ->
+                        analysis.setAnalyzer(cameraExecutor) { imageProxy ->
+                            processFrame(imageProxy)
+                        }
+                    }
+
                 val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
-                // Unbind all use cases before rebinding
                 cameraProvider.unbindAll()
 
-                // Bind camera to lifecycle
                 cameraProvider.bindToLifecycle(
                     this,
                     cameraSelector,
-                    preview
+                    preview,
+                    imageAnalyzer  // Add analyzer
                 )
 
-                // Update status
-                binding.statusText.text = "Ready to scan"
-                Log.d(TAG, "Camera started successfully")
+                binding.statusText.text = "Detecting whiteboard..."
+                Log.d(TAG, "Camera started with ML detection")
 
             } catch (e: Exception) {
-                Log.e(TAG, "Camera initialization failed", e)
-                binding.statusText.text = "Camera failed: ${e.message}"
+                Log.e(TAG, "Camera failed", e)
+                binding.statusText.text = "Camera error"
             }
 
         }, ContextCompat.getMainExecutor(this))
     }
 
     /**
-     * Capture image (placeholder for now)
+     * Process each camera frame for whiteboard detection
      */
-    private fun captureImage() {
-        binding.statusText.text = "Capturing..."
+    private fun processFrame(imageProxy: ImageProxy) {
+        try {
+            // Convert ImageProxy to Bitmap
+            val bitmap = imageProxyToBitmap(imageProxy)
 
-        // TODO: Implement actual capture in next phase
-        Toast.makeText(this, "Capture button clicked!", Toast.LENGTH_SHORT).show()
+            // Run ML detection
+            val corners = detector.detectWhiteboard(bitmap)
 
-        // Reset status after a moment
-        binding.statusText.postDelayed({
-            binding.statusText.text = "Ready to scan"
-        }, 1000)
+            // Update overlay on UI thread
+            runOnUiThread {
+                binding.overlayView.updatePolygon(corners)
+            }
+
+            bitmap.recycle()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Frame processing error", e)
+        } finally {
+            imageProxy.close()
+        }
     }
 
     /**
-     * Check if all required permissions are granted
+     * Convert CameraX ImageProxy to Bitmap (with rotation correction)
      */
+    private fun imageProxyToBitmap(imageProxy: ImageProxy): Bitmap {
+        val image = imageProxy.image!!
+
+        val yBuffer = image.planes[0].buffer
+        val uBuffer = image.planes[1].buffer
+        val vBuffer = image.planes[2].buffer
+
+        val ySize = yBuffer.remaining()
+        val uSize = uBuffer.remaining()
+        val vSize = vBuffer.remaining()
+
+        val nv21 = ByteArray(ySize + uSize + vSize)
+        yBuffer.get(nv21, 0, ySize)
+        vBuffer.get(nv21, ySize, vSize)
+        uBuffer.get(nv21, ySize + vSize, uSize)
+
+        val yuvImage = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
+        val out = ByteArrayOutputStream()
+        yuvImage.compressToJpeg(Rect(0, 0, image.width, image.height), 100, out)
+        val imageBytes = out.toByteArray()
+
+        val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+        
+        // CRITICAL: Rotate bitmap to match preview orientation
+        val rotationDegrees = imageProxy.imageInfo.rotationDegrees
+        return if (rotationDegrees != 0) {
+            val matrix = android.graphics.Matrix()
+            matrix.postRotate(rotationDegrees.toFloat())
+            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true).also {
+                bitmap.recycle()
+            }
+        } else {
+            bitmap
+        }
+    }
+
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
     }
-
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -134,19 +193,15 @@ class MainActivity : AppCompatActivity() {
             if (allPermissionsGranted()) {
                 startCamera()
             } else {
-                Toast.makeText(
-                    this,
-                    "Camera permission is required",
-                    Toast.LENGTH_SHORT
-                ).show()
+                Toast.makeText(this, "Camera permission required", Toast.LENGTH_LONG).show()
                 finish()
             }
         }
     }
 
-
     override fun onDestroy() {
         super.onDestroy()
         cameraExecutor.shutdown()
+        detector.close()
     }
 }
