@@ -43,8 +43,14 @@ android {
 
 dependencies {
 
+    implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
+
+
     implementation("org.tensorflow:tensorflow-lite:2.14.0")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+
+    implementation("androidx.viewpager2:viewpager2:1.0.0")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
 
     val cameraXVersion = "1.3.1"
     implementation("androidx.camera:camera-core:${cameraXVersion}")
