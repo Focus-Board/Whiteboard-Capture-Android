@@ -6,21 +6,21 @@ import org.junit.Assert.*
 class ScanModeTest {
 
     @Test
-    fun `whiteboard mode has correct properties`() {
-        assertEquals("Whiteboard Beta", ScanMode.WHITEBOARD.displayName)
-        assertEquals("Experimental whiteboard detection", ScanMode.WHITEBOARD.description)
+    fun `ml kit scanner mode has correct properties`() {
+        assertEquals("ML Kit Scanner", ScanMode.ML_KIT.displayName)
+        assertEquals("Google-hosted document scanner UI", ScanMode.ML_KIT.description)
     }
 
     @Test
-    fun `document mode has correct properties`() {
-        assertEquals("Auto Scan", ScanMode.DOCUMENT.displayName)
-        assertEquals("Default document capture", ScanMode.DOCUMENT.description)
+    fun `whiteboard beta scanner mode has correct properties`() {
+        assertEquals("Whiteboard Beta Scanner", ScanMode.WHITEBOARD_BETA.displayName)
+        assertEquals("Experimental in-app whiteboard capture", ScanMode.WHITEBOARD_BETA.description)
     }
 
     @Test
     fun `fromOrdinal returns correct modes`() {
-        assertEquals(ScanMode.DOCUMENT, ScanMode.fromOrdinal(0))
-        assertEquals(ScanMode.WHITEBOARD, ScanMode.fromOrdinal(1))
+        assertEquals(ScanMode.ML_KIT, ScanMode.fromOrdinal(0))
+        assertEquals(ScanMode.WHITEBOARD_BETA, ScanMode.fromOrdinal(1))
     }
 
     @Test

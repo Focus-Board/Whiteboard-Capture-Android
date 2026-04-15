@@ -2,4 +2,16 @@
     <string name="app_name">Whiteboard Scanner</string>
     <string name="statusInitializing">Initializing...</string>
     <string name="captureWhiteboard">Capture Whiteboard</string>
+    <string name="workflowMenu">Workflow menu</string>
+    <string name="workflowCalendarEntry">Calendar Entry</string>
+    <string name="workflowVectorConversion">Vector Conversion</string>
+    <string name="scannerMlKit">ML Kit Scanner</string>
+    <string name="scannerWhiteboardBeta">Whiteboard Beta Scanner</string>
+    <string name="workflowCalendarStatus">Calendar entry workflow ready</string>
+    <string name="workflowVectorStatus">Vector conversion workflow ready</string>
+    <string name="startupTitle">Choose your workflow</string>
+    <string name="startupSubtitle">Calendar entry is for the server-backed approval flow. Vector conversion stays local.</string>
+    <string name="startupPrompt">Choose a workflow to begin</string>
+    <string name="workflowCalendarLaunchSubtitle">Use server review, OCR, and calendar confirmation after capture.</string>
+    <string name="workflowVectorLaunchSubtitle">Keep the full capture and vector pipeline local on the device.</string>
 </resources>

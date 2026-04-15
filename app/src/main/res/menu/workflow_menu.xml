@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/workflow_calendar_entry"
+        android:title="@string/workflowCalendarEntry" />
+    <item
+        android:id="@+id/workflow_vector_conversion"
+        android:title="@string/workflowVectorConversion" />
+</menu>

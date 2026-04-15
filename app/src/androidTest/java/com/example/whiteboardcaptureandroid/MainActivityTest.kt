@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -24,6 +25,7 @@ class MainActivityTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val intent = Intent(context, MainActivity::class.java).apply {
             putExtra(MainActivity.EXTRA_DISABLE_CAMERA_START, true)
+            putExtra(MainActivity.EXTRA_DISABLE_AUTO_LAUNCH, true)
         }
         return ActivityScenario.launch(intent)
     }
@@ -31,49 +33,37 @@ class MainActivityTest {
     @Test
     fun activity_launches() {
         launchTestActivity().use {
-            onView(withId(R.id.previewView)).check(matches(isDisplayed()))
+            onView(withId(R.id.startupContainer)).check(matches(isDisplayed()))
         }
     }
 
     @Test
-    fun statusText_showsInitialMessage() {
+    fun startupScreen_showsPrompt() {
         launchTestActivity().use {
-            onView(withId(R.id.statusText))
-                .check(matches(withText("Auto scan ready")))
+            onView(withId(R.id.startCalendarButton)).check(matches(isDisplayed()))
+            onView(withId(R.id.startVectorButton)).check(matches(isDisplayed()))
         }
     }
 
     @Test
-    fun captureButton_isDisplayed() {
+    fun selectingCalendarWorkflow_revealsMainUi() {
         launchTestActivity().use {
+            onView(withId(R.id.startCalendarButton)).perform(click())
+            onView(withId(R.id.mainContentContainer)).check(matches(isDisplayed()))
             onView(withId(R.id.captureButton)).check(matches(isDisplayed()))
-        }
-    }
-
-    @Test
-    fun flashButton_isDisplayed() {
-        launchTestActivity().use {
             onView(withId(R.id.flashButton)).check(matches(isDisplayed()))
-        }
-    }
-
-    @Test
-    fun galleryButton_isDisplayed() {
-        launchTestActivity().use {
             onView(withId(R.id.galleryButton)).check(matches(isDisplayed()))
+            onView(withId(R.id.modeRecyclerView)).check(matches(isDisplayed()))
+            onView(withId(R.id.menuButton)).check(matches(isDisplayed()))
         }
     }
 
     @Test
-    fun overlayView_isDisplayed() {
+    fun selectingVectorWorkflow_revealsMainUi() {
         launchTestActivity().use {
-            onView(withId(R.id.overlayView)).check(matches(isDisplayed()))
-        }
-    }
-
-    @Test
-    fun modeRecyclerView_isDisplayed() {
-        launchTestActivity().use {
+            onView(withId(R.id.startVectorButton)).perform(click())
+            onView(withId(R.id.mainContentContainer)).check(matches(isDisplayed()))
+            onView(withId(R.id.captureButton)).check(matches(isDisplayed()))
             onView(withId(R.id.modeRecyclerView)).check(matches(isDisplayed()))
         }
     }

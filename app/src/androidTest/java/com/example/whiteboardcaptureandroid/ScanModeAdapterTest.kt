@@ -14,7 +14,7 @@ class ScanModeAdapterTest {
 
     @Before
     fun setup() {
-        val modes = listOf(ScanMode.WHITEBOARD, ScanMode.DOCUMENT)
+        val modes = listOf(ScanMode.ML_KIT, ScanMode.WHITEBOARD_BETA)
         adapter = ScanModeAdapter(modes) { callbackInvoked = true }
     }
 
@@ -24,20 +24,20 @@ class ScanModeAdapterTest {
     }
 
     @Test
-    fun setSelectedMode_whiteboard() {
-        adapter.setSelectedMode(ScanMode.WHITEBOARD)
+    fun setSelectedMode_mlKit() {
+        adapter.setSelectedMode(ScanMode.ML_KIT)
         // No crash = pass
     }
 
     @Test
-    fun setSelectedMode_document() {
-        adapter.setSelectedMode(ScanMode.DOCUMENT)
+    fun setSelectedMode_whiteboardBeta() {
+        adapter.setSelectedMode(ScanMode.WHITEBOARD_BETA)
         // No crash = pass
     }
 
     @Test
     fun adapter_handlesModeList() {
-        val modes = listOf(ScanMode.WHITEBOARD, ScanMode.DOCUMENT)
+        val modes = listOf(ScanMode.ML_KIT, ScanMode.WHITEBOARD_BETA)
         val testAdapter = ScanModeAdapter(modes) {}
         assertEquals(2, testAdapter.itemCount)
     }

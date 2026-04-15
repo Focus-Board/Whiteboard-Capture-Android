@@ -4,8 +4,8 @@ enum class ScanMode(
     val displayName: String,
     val description: String
 ) {
-    DOCUMENT("Auto Scan", "Default document capture"),
-    WHITEBOARD("Whiteboard Beta", "Experimental whiteboard detection");
+    ML_KIT("ML Kit Scanner", "Google-hosted document scanner UI"),
+    WHITEBOARD_BETA("Whiteboard Beta Scanner", "Experimental in-app whiteboard capture");
 
     companion object {
         fun fromOrdinal(ordinal: Int): ScanMode {

@@ -11,6 +11,9 @@ import android.graphics.YuvImage
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.View
+import android.view.MenuItem
+import android.widget.PopupMenu
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -30,10 +33,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var detector: WhiteboardDetector
-    private lateinit var modeAdapter: ScanModeAdapter
+    private lateinit var scannerAdapter: ScanModeAdapter
     private lateinit var documentScannerHelper: DocumentScannerHelper
 
-    private var currentMode: ScanMode = ScanMode.DOCUMENT
+    private var currentWorkflowMode: WorkflowMode = WorkflowMode.CALENDAR_ENTRY
+    private var currentScannerMode: ScanMode = ScanMode.ML_KIT
+    private var isWorkflowSelected = false
+    private var isAutoLaunchDisabled = false
     private var camera: Camera? = null
     private var cameraProvider: ProcessCameraProvider? = null
     private var isCameraStarted = false
@@ -44,6 +50,7 @@ class MainActivity : AppCompatActivity() {
         private const val REQUEST_CODE_PERMISSIONS = 10
         private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
         const val EXTRA_DISABLE_CAMERA_START = "extra_disable_camera_start"
+        const val EXTRA_DISABLE_AUTO_LAUNCH = "extra_disable_auto_launch"
     }
 
     // ML Kit Scanner Launcher
@@ -56,7 +63,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             // User cancelled - switch back to whiteboard mode
             Log.d(TAG, "ML Kit scan cancelled, switching to Whiteboard mode")
-            switchToWhiteboardMode()
+            refreshStatus()
         }
     }
 
@@ -81,22 +88,20 @@ class MainActivity : AppCompatActivity() {
                 },
                 onScanError = { error ->
                     Toast.makeText(this, "Scan failed: ${error.message}", Toast.LENGTH_SHORT).show()
-                    switchToWhiteboardMode()
+                    refreshStatus()
                 }
             )
 
             setupModeSelector()
+            setupWorkflowMenu()
             setupButtons()
-            updateStatusForMode(currentMode)
-            binding.overlayView.setDetectionMode(OverlayView.DetectionMode.DOCUMENT)
+            showLaunchScreen()
 
             val disableCameraForTest = intent?.getBooleanExtra(EXTRA_DISABLE_CAMERA_START, false) == true
+            isAutoLaunchDisabled = intent?.getBooleanExtra(EXTRA_DISABLE_AUTO_LAUNCH, false) == true
             if (disableCameraForTest) {
                 Log.d(TAG, "Startup action disabled by test intent extra")
-                updateStatusForMode(currentMode)
-            } else if (allPermissionsGranted()) {
-                launchMode(currentMode)
-            } else {
+            } else if (!allPermissionsGranted()) {
                 ActivityCompat.requestPermissions(
                     this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS
                 )
@@ -109,11 +114,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupButtons() {
-        // Capture button - behavior depends on mode
+        // Capture button - behavior depends on the selected scanner
         binding.captureButton.setOnClickListener {
-            when (currentMode) {
-                ScanMode.DOCUMENT -> documentScannerHelper.startScan()
-                ScanMode.WHITEBOARD -> captureWhiteboardImage()
+            when (currentScannerMode) {
+                ScanMode.ML_KIT -> launchMlKitScanner()
+                ScanMode.WHITEBOARD_BETA -> captureWhiteboardImage()
             }
         }
 
@@ -125,6 +130,14 @@ class MainActivity : AppCompatActivity() {
         // Gallery button
         binding.galleryButton.setOnClickListener {
             openGallery()
+        }
+
+        binding.startCalendarButton.setOnClickListener {
+            selectWorkflow(WorkflowMode.CALENDAR_ENTRY)
+        }
+
+        binding.startVectorButton.setOnClickListener {
+            selectWorkflow(WorkflowMode.VECTOR_CONVERSION)
         }
     }
 
@@ -153,12 +166,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupModeSelector() {
         val modes = listOf(
-            ScanMode.DOCUMENT,
-            ScanMode.WHITEBOARD
+            ScanMode.ML_KIT,
+            ScanMode.WHITEBOARD_BETA
         )
 
-        modeAdapter = ScanModeAdapter(modes) { selectedMode ->
-            onModeChanged(selectedMode)
+        scannerAdapter = ScanModeAdapter(modes) { selectedScannerMode ->
+            onScannerModeChanged(selectedScannerMode)
         }
 
         binding.modeRecyclerView.apply {
@@ -167,19 +180,58 @@ class MainActivity : AppCompatActivity() {
                 LinearLayoutManager.HORIZONTAL,
                 false
             )
-            adapter = modeAdapter
+            adapter = scannerAdapter
         }
 
-        modeAdapter.setSelectedMode(currentMode)
+        scannerAdapter.setSelectedMode(currentScannerMode)
     }
 
-    private fun onModeChanged(mode: ScanMode) {
-        Log.d(TAG, "Mode changing from $currentMode to $mode")
+    private fun setupWorkflowMenu() {
+        binding.menuButton.setOnClickListener {
+            showWorkflowMenu()
+        }
+    }
 
-        currentMode = mode
-        updateStatusForMode(mode)
+    private fun showWorkflowMenu() {
+        PopupMenu(this, binding.menuButton).apply {
+            menuInflater.inflate(R.menu.workflow_menu, menu)
+            setOnMenuItemClickListener { item ->
+                handleWorkflowMenuSelection(item)
+            }
+            show()
+        }
+    }
 
-        launchMode(mode)
+    private fun handleWorkflowMenuSelection(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.workflow_calendar_entry -> {
+                updateWorkflowMode(WorkflowMode.CALENDAR_ENTRY)
+                true
+            }
+            R.id.workflow_vector_conversion -> {
+                updateWorkflowMode(WorkflowMode.VECTOR_CONVERSION)
+                true
+            }
+            else -> false
+        }
+    }
+
+    private fun updateWorkflowMode(mode: WorkflowMode) {
+        Log.d(TAG, "Workflow changing from $currentWorkflowMode to $mode")
+
+        currentWorkflowMode = mode
+        refreshStatus()
+    }
+
+    private fun onScannerModeChanged(mode: ScanMode) {
+        Log.d(TAG, "Scanner changing from $currentScannerMode to $mode")
+
+        currentScannerMode = mode
+        refreshStatus()
+
+        if (isWorkflowSelected && !isAutoLaunchDisabled) {
+            launchCurrentScanner()
+        }
     }
 
     private fun showCameraPreview() {
@@ -188,24 +240,54 @@ class MainActivity : AppCompatActivity() {
         binding.overlayView.alpha = 1f
     }
 
+    private fun showLaunchScreen() {
+        binding.startupContainer.visibility = View.VISIBLE
+        binding.mainContentContainer.visibility = View.GONE
+        refreshStatus()
+    }
+
+    private fun hideLaunchScreen() {
+        binding.startupContainer.visibility = View.GONE
+        binding.mainContentContainer.visibility = View.VISIBLE
+    }
+
+    private fun selectWorkflow(mode: WorkflowMode) {
+        updateWorkflowMode(mode)
+        isWorkflowSelected = true
+        hideLaunchScreen()
+        refreshStatus()
+
+        if (!isAutoLaunchDisabled) {
+            launchCurrentScanner()
+        }
+    }
+
     private fun hideCameraPreview() {
         binding.previewView.alpha = 0f
         binding.overlayView.alpha = 0f
     }
 
-    private fun launchMode(mode: ScanMode) {
-        when (mode) {
-            ScanMode.DOCUMENT -> launchDocumentScanner()
-            ScanMode.WHITEBOARD -> startCamera()
-        }
-    }
-
-    private fun launchDocumentScanner() {
-        Log.d(TAG, "Launching ML Kit scanner for Auto Scan mode")
+    private fun launchMlKitScanner() {
+        Log.d(TAG, "Launching ML Kit scanner")
         stopCamera()
         hideCameraPreview()
         binding.overlayView.setDetectionMode(OverlayView.DetectionMode.DOCUMENT)
         documentScannerHelper.startScan()
+    }
+
+    private fun launchCurrentScanner() {
+        when (currentScannerMode) {
+            ScanMode.ML_KIT -> launchMlKitScanner()
+            ScanMode.WHITEBOARD_BETA -> {
+                if (allPermissionsGranted()) {
+                    startCamera()
+                } else {
+                    ActivityCompat.requestPermissions(
+                        this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS
+                    )
+                }
+            }
+        }
     }
 
     private fun stopCamera() {
@@ -214,23 +296,23 @@ class MainActivity : AppCompatActivity() {
         isCameraStarted = false
     }
 
-    private fun switchToWhiteboardMode() {
-        // Programmatically switch back to whiteboard
-        runOnUiThread {
-            currentMode = ScanMode.WHITEBOARD
-            modeAdapter.setSelectedMode(ScanMode.WHITEBOARD)
-            updateStatusForMode(ScanMode.WHITEBOARD)
-            binding.overlayView.setDetectionMode(OverlayView.DetectionMode.WHITEBOARD)
-            startCamera()
-            showCameraPreview()
+    private fun refreshStatus() {
+        if (!isWorkflowSelected) {
+            binding.statusText.text = getString(R.string.startupPrompt)
+            return
         }
-    }
 
-    private fun updateStatusForMode(mode: ScanMode) {
-        binding.statusText.text = when (mode) {
-            ScanMode.DOCUMENT -> "Auto scan ready"
-            ScanMode.WHITEBOARD -> "Point at whiteboard beta"
+        val workflowText = when (currentWorkflowMode) {
+            WorkflowMode.CALENDAR_ENTRY -> getString(R.string.workflowCalendarStatus)
+            WorkflowMode.VECTOR_CONVERSION -> getString(R.string.workflowVectorStatus)
         }
+
+        val scannerText = when (currentScannerMode) {
+            ScanMode.ML_KIT -> getString(R.string.scannerMlKit)
+            ScanMode.WHITEBOARD_BETA -> getString(R.string.scannerWhiteboardBeta)
+        }
+
+        binding.statusText.text = "$workflowText · $scannerText"
     }
 
     private fun captureWhiteboardImage() {
@@ -240,29 +322,42 @@ class MainActivity : AppCompatActivity() {
         // Animate capture button
         animateCaptureButton()
 
-        // TODO: Implement actual capture with perspective correction
+        // TODO: Implement local capture -> canvas/vector conversion entry point.
+        when (currentWorkflowMode) {
+            WorkflowMode.CALENDAR_ENTRY -> {
+                binding.statusText.text = "Review calendar capture locally before server upload"
+            }
+            WorkflowMode.VECTOR_CONVERSION -> {
+                binding.statusText.text = "Vector conversion running locally"
+            }
+        }
 
         binding.statusText.postDelayed({
-            updateStatusForMode(currentMode)
+            refreshStatus()
         }, 2000)
     }
 
     private fun handleScannedDocument(imageUris: List<Uri>) {
         if (imageUris.isEmpty()) {
             Toast.makeText(this, "No document scanned", Toast.LENGTH_SHORT).show()
-            switchToWhiteboardMode()
+            refreshStatus()
             return
         }
 
         Log.d(TAG, "Document scanned: ${imageUris[0]}")
         Toast.makeText(this, "Document scanned successfully!", Toast.LENGTH_SHORT).show()
 
-        // TODO: Open preview activity with scanned image
-        binding.statusText.text = "Scanned: ${imageUris.size} page(s)"
+        when (currentWorkflowMode) {
+            WorkflowMode.CALENDAR_ENTRY -> {
+                binding.statusText.text = "Calendar entry capture ready for server approval"
+            }
+            WorkflowMode.VECTOR_CONVERSION -> {
+                binding.statusText.text = "Vector conversion ready for local processing"
+            }
+        }
 
-        // Switch back to whiteboard mode after scan
         binding.statusText.postDelayed({
-            switchToWhiteboardMode()
+            refreshStatus()
         }, 2000)
     }
 
@@ -325,7 +420,7 @@ class MainActivity : AppCompatActivity() {
                 isCameraStarted = true
                 showCameraPreview()
 
-                updateStatusForMode(currentMode)
+                refreshStatus()
                 Log.d(TAG, "Camera started with ML detection")
 
             } catch (e: Exception) {
@@ -338,8 +433,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun processFrame(imageProxy: ImageProxy) {
         try {
-            // Only run TFLite detection in Whiteboard mode
-            if (currentMode == ScanMode.WHITEBOARD) {
+            // Only run TFLite detection in whiteboard beta scanner mode
+            if (currentScannerMode == ScanMode.WHITEBOARD_BETA) {
                 val bitmap = imageProxyToBitmap(imageProxy)
                 val corners = detector.detectWhiteboard(bitmap)
 
@@ -405,7 +500,9 @@ class MainActivity : AppCompatActivity() {
 
         if (requestCode == REQUEST_CODE_PERMISSIONS) {
             if (allPermissionsGranted()) {
-                launchMode(currentMode)
+                if (isWorkflowSelected && !isAutoLaunchDisabled) {
+                    launchCurrentScanner()
+                }
             } else {
                 Toast.makeText(this, "Camera permission required", Toast.LENGTH_LONG).show()
                 finish()
