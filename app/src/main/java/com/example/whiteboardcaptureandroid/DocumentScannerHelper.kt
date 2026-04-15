@@ -32,7 +32,7 @@ class DocumentScannerHelper(
                 GmsDocumentScannerOptions.RESULT_FORMAT_JPEG,
                 GmsDocumentScannerOptions.RESULT_FORMAT_PDF
             )
-            .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
+            .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_BASE)
             .build()
 
         scanner = GmsDocumentScanning.getClient(options)

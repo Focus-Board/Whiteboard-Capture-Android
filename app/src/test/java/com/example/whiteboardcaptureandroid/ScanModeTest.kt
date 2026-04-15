@@ -7,20 +7,20 @@ class ScanModeTest {
 
     @Test
     fun `whiteboard mode has correct properties`() {
-        assertEquals("Whiteboard", ScanMode.WHITEBOARD.displayName)
-        assertEquals("Detect whiteboards and clean them", ScanMode.WHITEBOARD.description)
+        assertEquals("Whiteboard Beta", ScanMode.WHITEBOARD.displayName)
+        assertEquals("Experimental whiteboard detection", ScanMode.WHITEBOARD.description)
     }
 
     @Test
     fun `document mode has correct properties`() {
-        assertEquals("Document", ScanMode.DOCUMENT.displayName)
-        assertEquals("Scan documents with auto-crop", ScanMode.DOCUMENT.description)
+        assertEquals("Auto Scan", ScanMode.DOCUMENT.displayName)
+        assertEquals("Default document capture", ScanMode.DOCUMENT.description)
     }
 
     @Test
     fun `fromOrdinal returns correct modes`() {
-        assertEquals(ScanMode.WHITEBOARD, ScanMode.fromOrdinal(0))
-        assertEquals(ScanMode.DOCUMENT, ScanMode.fromOrdinal(1))
+        assertEquals(ScanMode.DOCUMENT, ScanMode.fromOrdinal(0))
+        assertEquals(ScanMode.WHITEBOARD, ScanMode.fromOrdinal(1))
     }
 
     @Test

@@ -4,8 +4,8 @@ enum class ScanMode(
     val displayName: String,
     val description: String
 ) {
-    WHITEBOARD("Whiteboard", "Detect whiteboards and clean them"),
-    DOCUMENT("Document", "Scan documents with auto-crop");
+    DOCUMENT("Auto Scan", "Default document capture"),
+    WHITEBOARD("Whiteboard Beta", "Experimental whiteboard detection");
 
     companion object {
         fun fromOrdinal(ordinal: Int): ScanMode {

@@ -39,7 +39,7 @@ class MainActivityTest {
     fun statusText_showsInitialMessage() {
         launchTestActivity().use {
             onView(withId(R.id.statusText))
-                .check(matches(withText("Point at whiteboard")))
+                .check(matches(withText("Auto scan ready")))
         }
     }
 

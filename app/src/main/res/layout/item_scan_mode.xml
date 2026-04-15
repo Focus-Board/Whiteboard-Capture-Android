@@ -25,7 +25,7 @@
             android:id="@+id/modeTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Whiteboard"
+            android:text="Auto Scan"
             android:textColor="#FFFFFF"
             android:textSize="16sp"
             android:textStyle="bold" />

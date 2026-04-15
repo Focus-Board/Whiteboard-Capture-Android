@@ -33,8 +33,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var modeAdapter: ScanModeAdapter
     private lateinit var documentScannerHelper: DocumentScannerHelper
 
-    private var currentMode: ScanMode = ScanMode.WHITEBOARD
+    private var currentMode: ScanMode = ScanMode.DOCUMENT
     private var camera: Camera? = null
+    private var cameraProvider: ProcessCameraProvider? = null
+    private var isCameraStarted = false
     private var isFlashOn = false
 
     companion object {
@@ -86,13 +88,14 @@ class MainActivity : AppCompatActivity() {
             setupModeSelector()
             setupButtons()
             updateStatusForMode(currentMode)
+            binding.overlayView.setDetectionMode(OverlayView.DetectionMode.DOCUMENT)
 
             val disableCameraForTest = intent?.getBooleanExtra(EXTRA_DISABLE_CAMERA_START, false) == true
             if (disableCameraForTest) {
-                Log.d(TAG, "Camera startup disabled by test intent extra")
+                Log.d(TAG, "Startup action disabled by test intent extra")
                 updateStatusForMode(currentMode)
             } else if (allPermissionsGranted()) {
-                startCamera()
+                launchMode(currentMode)
             } else {
                 ActivityCompat.requestPermissions(
                     this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS
@@ -109,8 +112,8 @@ class MainActivity : AppCompatActivity() {
         // Capture button - behavior depends on mode
         binding.captureButton.setOnClickListener {
             when (currentMode) {
-                ScanMode.WHITEBOARD -> captureWhiteboardImage()
                 ScanMode.DOCUMENT -> documentScannerHelper.startScan()
+                ScanMode.WHITEBOARD -> captureWhiteboardImage()
             }
         }
 
@@ -150,8 +153,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupModeSelector() {
         val modes = listOf(
-            ScanMode.WHITEBOARD,
-            ScanMode.DOCUMENT
+            ScanMode.DOCUMENT,
+            ScanMode.WHITEBOARD
         )
 
         modeAdapter = ScanModeAdapter(modes) { selectedMode ->
@@ -166,6 +169,8 @@ class MainActivity : AppCompatActivity() {
             )
             adapter = modeAdapter
         }
+
+        modeAdapter.setSelectedMode(currentMode)
     }
 
     private fun onModeChanged(mode: ScanMode) {
@@ -174,19 +179,7 @@ class MainActivity : AppCompatActivity() {
         currentMode = mode
         updateStatusForMode(mode)
 
-        when (mode) {
-            ScanMode.WHITEBOARD -> {
-                // Show camera with TFLite overlay
-                showCameraPreview()
-                binding.overlayView.setDetectionMode(OverlayView.DetectionMode.WHITEBOARD)
-            }
-            ScanMode.DOCUMENT -> {
-                // Immediately launch ML Kit scanner
-                Log.d(TAG, "Launching ML Kit scanner for Document mode")
-                documentScannerHelper.startScan()
-                binding.overlayView.setDetectionMode(OverlayView.DetectionMode.DOCUMENT)
-            }
-        }
+        launchMode(mode)
     }
 
     private fun showCameraPreview() {
@@ -195,21 +188,48 @@ class MainActivity : AppCompatActivity() {
         binding.overlayView.alpha = 1f
     }
 
+    private fun hideCameraPreview() {
+        binding.previewView.alpha = 0f
+        binding.overlayView.alpha = 0f
+    }
+
+    private fun launchMode(mode: ScanMode) {
+        when (mode) {
+            ScanMode.DOCUMENT -> launchDocumentScanner()
+            ScanMode.WHITEBOARD -> startCamera()
+        }
+    }
+
+    private fun launchDocumentScanner() {
+        Log.d(TAG, "Launching ML Kit scanner for Auto Scan mode")
+        stopCamera()
+        hideCameraPreview()
+        binding.overlayView.setDetectionMode(OverlayView.DetectionMode.DOCUMENT)
+        documentScannerHelper.startScan()
+    }
+
+    private fun stopCamera() {
+        cameraProvider?.unbindAll()
+        camera = null
+        isCameraStarted = false
+    }
+
     private fun switchToWhiteboardMode() {
         // Programmatically switch back to whiteboard
         runOnUiThread {
             currentMode = ScanMode.WHITEBOARD
             modeAdapter.setSelectedMode(ScanMode.WHITEBOARD)
             updateStatusForMode(ScanMode.WHITEBOARD)
-            showCameraPreview()
             binding.overlayView.setDetectionMode(OverlayView.DetectionMode.WHITEBOARD)
+            startCamera()
+            showCameraPreview()
         }
     }
 
     private fun updateStatusForMode(mode: ScanMode) {
         binding.statusText.text = when (mode) {
-            ScanMode.WHITEBOARD -> "Point at whiteboard"
-            ScanMode.DOCUMENT -> "Opening scanner..."
+            ScanMode.DOCUMENT -> "Auto scan ready"
+            ScanMode.WHITEBOARD -> "Point at whiteboard beta"
         }
     }
 
@@ -262,13 +282,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startCamera() {
+        if (isCameraStarted) {
+            showCameraPreview()
+            return
+        }
+
         binding.statusText.text = "Starting camera..."
 
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
 
         cameraProviderFuture.addListener({
             try {
-                val cameraProvider = cameraProviderFuture.get()
+                val provider = cameraProviderFuture.get()
+                cameraProvider = provider
 
                 val preview = Preview.Builder()
                     .build()
@@ -287,15 +313,17 @@ class MainActivity : AppCompatActivity() {
 
                 val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
-                cameraProvider.unbindAll()
+                provider.unbindAll()
 
                 // Bind and save camera reference
-                camera = cameraProvider.bindToLifecycle(
+                camera = provider.bindToLifecycle(
                     this,
                     cameraSelector,
                     preview,
                     imageAnalyzer
                 )
+                isCameraStarted = true
+                showCameraPreview()
 
                 updateStatusForMode(currentMode)
                 Log.d(TAG, "Camera started with ML detection")
@@ -377,7 +405,7 @@ class MainActivity : AppCompatActivity() {
 
         if (requestCode == REQUEST_CODE_PERMISSIONS) {
             if (allPermissionsGranted()) {
-                startCamera()
+                launchMode(currentMode)
             } else {
                 Toast.makeText(this, "Camera permission required", Toast.LENGTH_LONG).show()
                 finish()
@@ -387,6 +415,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        stopCamera()
         cameraExecutor.shutdown()
         detector.close()
     }
