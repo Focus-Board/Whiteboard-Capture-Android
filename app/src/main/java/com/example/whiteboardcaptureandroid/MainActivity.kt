@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "WhiteboardScanner"
         private const val REQUEST_CODE_PERMISSIONS = 10
         private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
+        const val EXTRA_DISABLE_CAMERA_START = "extra_disable_camera_start"
     }
 
     // ML Kit Scanner Launcher
@@ -86,7 +87,11 @@ class MainActivity : AppCompatActivity() {
             setupButtons()
             updateStatusForMode(currentMode)
 
-            if (allPermissionsGranted()) {
+            val disableCameraForTest = intent?.getBooleanExtra(EXTRA_DISABLE_CAMERA_START, false) == true
+            if (disableCameraForTest) {
+                Log.d(TAG, "Camera startup disabled by test intent extra")
+                updateStatusForMode(currentMode)
+            } else if (allPermissionsGranted()) {
                 startCamera()
             } else {
                 ActivityCompat.requestPermissions(

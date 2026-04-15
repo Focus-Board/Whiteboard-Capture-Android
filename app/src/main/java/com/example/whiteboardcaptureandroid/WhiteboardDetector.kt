@@ -25,6 +25,26 @@ class WhiteboardDetector(context: Context) {
         private const val IOU_THRESHOLD = 0.5f
     }
 
+    private fun logDebug(message: String) {
+        try {
+            Log.d(TAG, message)
+        } catch (_: RuntimeException) {
+            // Avoid crashing local JVM tests where android.util.Log is not mocked.
+        }
+    }
+
+    private fun logError(message: String, throwable: Throwable? = null) {
+        try {
+            if (throwable != null) {
+                Log.e(TAG, message, throwable)
+            } else {
+                Log.e(TAG, message)
+            }
+        } catch (_: RuntimeException) {
+            // Avoid crashing local JVM tests where android.util.Log is not mocked.
+        }
+    }
+
     init {
         try {
             val modelBuffer = FileUtil.loadMappedFile(context, MODEL_FILE)
@@ -32,9 +52,9 @@ class WhiteboardDetector(context: Context) {
                 setNumThreads(4)
             }
             interpreter = Interpreter(modelBuffer, options)
-            Log.d(TAG, "Model loaded successfully")
+            logDebug("Model loaded successfully")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load model: ${e.message}", e)
+            logError("Failed to load model: ${e.message}", e)
         }
     }
 
@@ -108,7 +128,7 @@ class WhiteboardDetector(context: Context) {
             }
 
         } catch (e: Exception) {
-            Log.e(TAG, "Detection failed", e)
+            logError("Detection failed", e)
             return getFallbackPolygon()
         }
     }
